@@ -1,7 +1,7 @@
 from PlayLib import *
 import threading
 import asyncio
-import websockets
+import websockets, websockets.exceptions
 import queue
 import sys
 
@@ -30,9 +30,12 @@ class Communicator:
 
 	async def receive_from_server(self):
 		while True:
-			if not self.closed:
-				event = await self.ws.recv()
-				input_queue.put(event)
+			try:
+				if not self.closed:
+					event = await self.ws.recv()
+					input_queue.put(event)
+			except websockets.exceptions.ConnectionClosedOK:
+				sys.exit()
 
 
 	async def move_handler(self, command):
@@ -46,7 +49,6 @@ class Communicator:
 	async def close_app_handler(self, command):
 		self.closed = True
 		await self.ws.close()
-		asyncio.get_running_loop().close()
 		sys.exit()
 
 

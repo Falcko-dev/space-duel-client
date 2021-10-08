@@ -1,6 +1,7 @@
 import queue
 import pygame, sys
 import os
+import datetime
 
 out_queue_glob: queue.Queue
 
@@ -57,6 +58,7 @@ class Spaceship(pygame.sprite.Sprite):
 
 
 def ui_thread_inst(in_queue, out_queue):
+	# Для handler-ов
 	global out_queue_glob
 	out_queue_glob = out_queue
 
@@ -72,41 +74,51 @@ def ui_thread_inst(in_queue, out_queue):
 
 	print('The initial event put')
 	out_queue.put({'type': 'enter_game'})
-	game_start_trigger = in_queue.get()
-	if game_start_trigger == 'game_entered':
-		print('Game started')
-		server_events_toolkit = {'positions': place_ships, 'state': handle_state}
-		image_files = [os.path.join('Client/Sprites', i) for i in ('BlueShipIdle.png', 'BlueShipWounded.png', 'Explosion.png',
-														   'RedShipIdle.png', 'RedShipWounded.png', 'Explosion.png')]
-		player = Spaceship(SCENE, *image_files[:3], bullets_group)
-		enemy = Spaceship(SCENE, *image_files[3:], bullets_group)
-		ships_group.add(player)
-		ships_group.add(enemy)
-		while True:
-			# TODO: Сделать просмотр очереди событий, создание игровых объектов, реакцию на действия пользователя, добавление событий
-			#  в очередь на отправку.
-			#  Пули обновляются после кораблей.
+	while True:
+		try:
+			game_start_trigger = in_queue.get_nowait()
+			if game_start_trigger == 'game_entered':
+				break
+		except queue.Empty:
 			SCENE.fill(FILL_COLOR)
-			try:
-				server_event = in_queue.get_nowait()
-				server_events_toolkit[server_event.split(';')[0]](server_event, player, enemy)
-			except queue.Empty:
-				pass
-
-			inner_events = pygame.event.get()
-			for i in inner_events:
-				if i.type == pygame.QUIT:
-					out_queue.put({'type': 'close_app'})
-					sys.exit()
-				elif i.type == pygame.KEYDOWN:
-					if i.key == pygame.K_RIGHT:
-						out_queue.put({'type': 'move', 'dir': 'r'})
-					elif i.key == pygame.K_LEFT:
-						out_queue.put({'type': 'move', 'dir': 'l'})
-
-			ships_group.update()
 			pygame.display.update()
 			clock.tick(FPS)
+
+	print('Game started')
+	server_events_toolkit = {'positions': place_ships, 'state': handle_state}
+	image_files = [os.path.join('Client/Sprites', i) for i in ('BlueShipIdle.png', 'BlueShipWounded.png', 'Explosion.png',
+													   'RedShipIdle.png', 'RedShipWounded.png', 'Explosion.png')]
+	player = Spaceship(SCENE, *image_files[:3], bullets_group)
+	player.set_pos((500, 935))
+	enemy = Spaceship(SCENE, *image_files[3:], bullets_group)
+	enemy.set_pos((1000, 65))
+	ships_group.add(player)
+	ships_group.add(enemy)
+	while True:
+		# TODO: Сделать просмотр очереди событий, создание игровых объектов, реакцию на действия пользователя, добавление событий
+		#  в очередь на отправку.
+		#  Пули обновляются после кораблей.
+		SCENE.fill(FILL_COLOR)
+		try:
+			server_event = in_queue.get_nowait()
+			server_events_toolkit[server_event.split(';')[0]](server_event, player, enemy)
+		except queue.Empty:
+			pass
+
+		inner_events = pygame.event.get()
+		for i in inner_events:
+			if i.type == pygame.QUIT:
+				out_queue.put({'type': 'close_app'})
+				sys.exit()
+			elif i.type == pygame.KEYDOWN:
+				if i.key == pygame.K_RIGHT:
+					out_queue.put({'type': 'move', 'dir': 'r'})
+				elif i.key == pygame.K_LEFT:
+					out_queue.put({'type': 'move', 'dir': 'l'})
+
+		ships_group.update()
+		pygame.display.update()
+		clock.tick(FPS)
 
 
 def place_ships(event_string, player: Spaceship, enemy: Spaceship):
@@ -114,8 +126,11 @@ def place_ships(event_string, player: Spaceship, enemy: Spaceship):
 	player_x = int(parsed[0].split(':')[1])
 	enemy_x = 1500 - int(parsed[1].split(':')[1])
 
-	player.set_pos((player_x, 970))
-	enemy.set_pos((enemy_x, 30))
+	player.set_pos((player_x, 935))
+	enemy.set_pos((enemy_x, 65))
+	cur_datetime = datetime.datetime.utcnow()
+	cur_time = cur_datetime.second * 1000000 + cur_datetime.microsecond
+	print(f'Ping: {cur_time - int(parsed[-1])}')
 
 def handle_state(event_string, player, enemy):
 	state_type = event_string.split(';')[1]
