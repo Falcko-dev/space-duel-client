@@ -2,8 +2,10 @@ import queue
 import pygame, sys
 import os
 import datetime
+import pygame_gui
 
 out_queue_glob: queue.Queue
+ping_glob = 0
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -64,6 +66,7 @@ def ui_thread_inst(in_queue, out_queue):
 
 	pygame.init()
 	SCENE = pygame.display.set_mode((1500, 1000), pygame.RESIZABLE)
+	UI_MANAGER = pygame_gui.UIManager((1500, 1000), 'Themes/General.json')
 
 	FPS = 50
 	clock = pygame.time.Clock()
@@ -86,7 +89,7 @@ def ui_thread_inst(in_queue, out_queue):
 
 	print('Game started')
 	server_events_toolkit = {'positions': place_ships, 'state': handle_state}
-	image_files = [os.path.join('Client/Sprites', i) for i in ('BlueShipIdle.png', 'BlueShipWounded.png', 'Explosion.png',
+	image_files = [os.path.join('Sprites', i) for i in ('BlueShipIdle.png', 'BlueShipWounded.png', 'Explosion.png',
 													   'RedShipIdle.png', 'RedShipWounded.png', 'Explosion.png')]
 	player = Spaceship(SCENE, *image_files[:3], bullets_group)
 	player.set_pos((500, 935))
@@ -94,6 +97,8 @@ def ui_thread_inst(in_queue, out_queue):
 	enemy.set_pos((1000, 65))
 	ships_group.add(player)
 	ships_group.add(enemy)
+
+	ping_label = pygame_gui.elements.UILabel(pygame.Rect((1380, 90, 90, 50)), 'Ping: ', UI_MANAGER)
 	while True:
 		# TODO: Сделать просмотр очереди событий, создание игровых объектов, реакцию на действия пользователя, добавление событий
 		#  в очередь на отправку.
@@ -115,22 +120,26 @@ def ui_thread_inst(in_queue, out_queue):
 					out_queue.put({'type': 'move', 'dir': 'r'})
 				elif i.key == pygame.K_LEFT:
 					out_queue.put({'type': 'move', 'dir': 'l'})
+			UI_MANAGER.process_events(i)
 
 		ships_group.update()
+		ping_label.set_text(f'Ping: {ping_glob}')
+		UI_MANAGER.update(clock.tick(FPS))
+		UI_MANAGER.draw_ui(SCENE)
 		pygame.display.update()
-		clock.tick(FPS)
 
 
 def place_ships(event_string, player: Spaceship, enemy: Spaceship):
+	global ping_glob
 	parsed = event_string.split(';')[1:]
 	player_x = int(parsed[0].split(':')[1])
 	enemy_x = 1500 - int(parsed[1].split(':')[1])
-
 	player.set_pos((player_x, 935))
 	enemy.set_pos((enemy_x, 65))
+
 	cur_datetime = datetime.datetime.utcnow()
 	cur_time = cur_datetime.second * 1000000 + cur_datetime.microsecond
-	print(f'Ping: {cur_time - int(parsed[-1])}')
+	ping_glob = (cur_time - int(parsed[-1])) // 1000
 
 def handle_state(event_string, player, enemy):
 	state_type = event_string.split(';')[1]
