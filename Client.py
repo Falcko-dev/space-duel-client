@@ -12,14 +12,14 @@ output_queue = queue.Queue()
 class Communicator:
 	def __init__(self):
 		self.uri = 'ws://127.0.0.1:9090'
+		# self.uri = 'ws://space-duel-online.herokuapp.com:80'
 		self.closed = False
 
 	async def communicate(self):
 		self.ws = await websockets.connect(self.uri)
 
-
 	async def receive_from_ui(self):
-		toolkit = {'move': self.move_handler, 'enter_game': self.start_handler, 'close_app': self.close_app_handler}
+		toolkit = {'move': self.move_handler, 'enter_game': self.start_handler, 'close_app': self.close_app_handler, 'stop': self.stop_handler}
 		while True:
 			try:
 				outcome_event = await asyncio.get_running_loop().run_in_executor(None, output_queue.get)
@@ -50,6 +50,9 @@ class Communicator:
 		self.closed = True
 		await self.ws.close()
 		sys.exit()
+
+	async def stop_handler(self, command):
+		await self.ws.send('stop')
 
 
 async def net_thread_inst():

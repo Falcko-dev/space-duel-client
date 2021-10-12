@@ -65,7 +65,7 @@ def ui_thread_inst(in_queue, out_queue):
 	out_queue_glob = out_queue
 
 	pygame.init()
-	SCENE = pygame.display.set_mode((1500, 1000), pygame.RESIZABLE)
+	SCENE = pygame.display.set_mode((1500, 1000))
 	UI_MANAGER = pygame_gui.UIManager((1500, 1000), 'Themes/General.json')
 
 	FPS = 50
@@ -93,6 +93,7 @@ def ui_thread_inst(in_queue, out_queue):
 													   'RedShipIdle.png', 'RedShipWounded.png', 'Explosion.png')]
 	player = Spaceship(SCENE, *image_files[:3], bullets_group)
 	player.set_pos((500, 935))
+	player_is_moving = False
 	enemy = Spaceship(SCENE, *image_files[3:], bullets_group)
 	enemy.set_pos((1000, 65))
 	ships_group.add(player)
@@ -116,10 +117,16 @@ def ui_thread_inst(in_queue, out_queue):
 				out_queue.put({'type': 'close_app'})
 				sys.exit()
 			elif i.type == pygame.KEYDOWN:
-				if i.key == pygame.K_RIGHT:
-					out_queue.put({'type': 'move', 'dir': 'r'})
-				elif i.key == pygame.K_LEFT:
-					out_queue.put({'type': 'move', 'dir': 'l'})
+				if i.key in (pygame.K_RIGHT, pygame.K_LEFT):
+					if not player_is_moving:
+						player_is_moving = True
+						if i.key == pygame.K_RIGHT:
+							out_queue.put({'type': 'move', 'dir': 'r'})
+						elif i.key == pygame.K_LEFT:
+							out_queue.put({'type': 'move', 'dir': 'l'})
+			elif i.type == pygame.KEYUP and i.key in (pygame.K_RIGHT, pygame.K_LEFT):
+				out_queue.put({'type': 'stop'})
+				player_is_moving = False
 			UI_MANAGER.process_events(i)
 
 		ships_group.update()
