@@ -10,19 +10,24 @@ ping_glob = 0
 
 class Bullet(pygame.sprite.Sprite):
 
-	def __init__(self, parent, idle_image, start_pos, ships_group):
+	def __init__(self, parent, idle_image, start_pos, shooter):
 		pygame.sprite.Sprite.__init__(self)
 		self.parent = parent
 		self.image = pygame.image.load(idle_image)
 		self.rect = self.image.get_rect()
-		self.rect.center = start_pos
-
-		self.ships_group = ships_group
-
-	def set_pos(self, pos: list):
-		self.rect.move_ip(*pos)
+		self.shooter = shooter
+		if self.shooter == 'you':
+			self.rect.centerx = start_pos
+			self.rect.centery = 920
+		else:
+			self.rect.centerx = 1500 - start_pos
+			self.rect.centery = 80
 
 	def update(self):
+		if self.shooter == 'you':
+			self.rect.centery -= 50
+		else:
+			self.rect.centery += 50
 		self.parent.blit(self.image, self.rect)
 
 
@@ -31,7 +36,7 @@ class Spaceship(pygame.sprite.Sprite):
 	def __init__(self, parent, idle_image, injury_image, explosion_image, bullets_group):
 		pygame.sprite.Sprite.__init__(self)
 		self.parent = parent
-		self.hp = 100
+		self.__hp = 100
 
 		self.idle = pygame.image.load(idle_image)
 		self.wounded = pygame.image.load(injury_image)
@@ -44,18 +49,26 @@ class Spaceship(pygame.sprite.Sprite):
 
 		self.image_reset_timer = 0
 
+	@property
+	def hp(self):
+		return self.__hp
+
+	@hp.setter
+	def hp(self, value):
+		self.__hp = value
+		if self.hp <= 0:
+			self.image = self.explosion
+		else:
+			self.image = self.wounded
+		self.image_reset_timer = pygame.time.get_ticks()
+
 	def set_pos(self, pos):
 		if self.hp > 0:
 			self.rect.center = pos
 
 	def update(self):
-		if pygame.sprite.spritecollideany(self, self.bullets_group):
-			self.image = self.wounded
-			self.image_reset_timer = pygame.time.get_ticks()
 		if self.image_reset_timer and pygame.time.get_ticks() - self.image_reset_timer <= 3:
 			self.image = self.idle
-		if self.hp <= 0:
-			self.image = self.explosion
 		self.parent.blit(self.image, self.rect)
 
 
@@ -75,7 +88,6 @@ def ui_thread_inst(in_queue, out_queue):
 	ships_group = pygame.sprite.Group()
 	bullets_group = pygame.sprite.Group()
 
-	print('The initial event put')
 	out_queue.put({'type': 'enter_game'})
 	while True:
 		try:
@@ -88,7 +100,10 @@ def ui_thread_inst(in_queue, out_queue):
 			clock.tick(FPS)
 
 	print('Game started')
-	server_events_toolkit = {'positions': place_ships, 'state': handle_state}
+	server_events_toolkit = {'positions': place_ships,
+							 'state': handle_state,
+							 'new_bullet': lambda event, player, enemy: handle_new_bullet(event, bullets_group, SCENE),
+							 'hp': handle_hp}
 	image_files = [os.path.join('Sprites', i) for i in ('BlueShipIdle.png', 'BlueShipWounded.png', 'Explosion.png',
 													   'RedShipIdle.png', 'RedShipWounded.png', 'Explosion.png')]
 	player = Spaceship(SCENE, *image_files[:3], bullets_group)
@@ -124,11 +139,14 @@ def ui_thread_inst(in_queue, out_queue):
 							out_queue.put({'type': 'move', 'dir': 'r'})
 						elif i.key == pygame.K_LEFT:
 							out_queue.put({'type': 'move', 'dir': 'l'})
-			elif i.type == pygame.KEYUP and i.key in (pygame.K_RIGHT, pygame.K_LEFT):
-				out_queue.put({'type': 'stop'})
-				player_is_moving = False
+			elif i.type == pygame.KEYUP:
+				if i.key in (pygame.K_RIGHT, pygame.K_LEFT):
+					out_queue.put({'type': 'stop'})
+					player_is_moving = False
+				elif i.key == pygame.K_SPACE:
+					out_queue.put({'type': 'shoot'})
 			UI_MANAGER.process_events(i)
-
+		bullets_group.update()
 		ships_group.update()
 		ping_label.set_text(f'Ping: {ping_glob}')
 		UI_MANAGER.update(clock.tick(FPS))
@@ -153,3 +171,10 @@ def handle_state(event_string, player, enemy):
 	if state_type == 'enemy_left':
 		out_queue_glob.put({'type': 'close_app'})
 		sys.exit()
+
+def handle_new_bullet(bullet_string, bullets_group, scene):
+	bullets_group.add(Bullet(scene, 'Sprites/Bullet.png', int(bullet_string.split(';')[1]), bullet_string.split(';')[-1]))
+
+def handle_hp(event, player, enemy):
+	cur_health = int(event.split(';')[1])
+	player.hp = cur_health
