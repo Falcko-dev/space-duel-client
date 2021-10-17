@@ -69,6 +69,11 @@ async def net_thread_inst():
 	await asyncio.gather(communicator.receive_from_server(), communicator.receive_from_ui())
 
 
-ui_thread = threading.Thread(target=ui_thread_inst, args=(input_queue, output_queue))
+def launch_game():
+	game = Game(input_queue, output_queue)
+	game.ui_thread_inst()
+
+
+ui_thread = threading.Thread(target=launch_game)
 ui_thread.start()
 asyncio.run(net_thread_inst())
