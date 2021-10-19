@@ -49,7 +49,7 @@ class Communicator:
 
 	async def start_handler(self, command):
 		print('Starting the game...')
-		await self.ws.send('enter_game')
+		await self.ws.send(f'enter_game;{command["nick"]}')
 
 	async def close_app_handler(self, command):
 		self.closed = True
