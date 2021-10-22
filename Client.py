@@ -1,3 +1,4 @@
+#!venv/bin/python
 from PlayLib import *
 import threading
 import asyncio
@@ -11,8 +12,8 @@ output_queue = queue.Queue()
 
 class Communicator:
 	def __init__(self):
-		self.uri = 'ws://127.0.0.1:9090'
-		# self.uri = 'ws://space-duel-online.herokuapp.com:80'
+		# self.uri = 'ws://127.0.0.1:9090'
+		self.uri = 'ws://space-duel-online.herokuapp.com:80'
 		self.closed = False
 
 	async def communicate(self):
