@@ -1,0 +1,34 @@
+ {
+     "label":
+     {
+         "colours":
+         {
+             "normal_text": "#ffffff",
+             "normal_bg": "#595959"
+         },
+         "font":
+         {
+             "name": "FreeSerif",
+             "regular_path": "Themes/FreeSerif.ttf",
+             "size": "20",
+             "bold": "0",
+             "italic": "0"
+         }
+     },
+   "button":
+   {
+     "colours":
+         {
+             "normal_text": "#ffffff",
+             "normal_bg": "#595959"
+         },
+         "font":
+         {
+             "name": "FreeSerif",
+             "regular_path": "Themes/FreeSerif.ttf",
+             "size": "20",
+             "bold": "0",
+             "italic": "0"
+         }
+   }
+ }
